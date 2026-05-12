@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:mirealsource.com)",
+      "WebFetch(domain:realtor.com)",
+      "WebFetch(domain:zillow.com)",
+      "WebFetch(domain:remax.net)",
+      "WebFetch(domain:kw.com)",
+      "WebFetch(domain:coldwellbanker.com)",
+      "WebFetch(domain:realestateone.com)",
+      "WebFetch(domain:howardhanna.com)",
+      "WebFetch(domain:bhhsmi.com)",
+      "WebFetch(domain:cbwm.com)",
+      "WebFetch(domain:cb-hb.com)",
+      "WebFetch(domain:cbrealty.com)",
+      "WebFetch(domain:maxbroock.com)",
+      "WebFetch(domain:cbunited.com)",
+      "WebFetch(domain:realliving.com)",
+      "WebFetch(domain:realtyexecutives.com)",
+      "WebFetch(domain:century21.com)",
+      "WebFetch(domain:exitrealty.com)",
+      "WebFetch(domain:kwglover.com)",
+      "WebFetch(domain:nationalrealtycenters.com)",
+      "WebFetch(domain:riserealtymi.com)",
+      "WebFetch(domain:anthonydjon.com)",
+      "WebFetch(domain:refacmi.com)",
+      "WebFetch(domain:wsrealtor.com)",
+      "WebFetch(domain:innetworkrealestate.com)",
+      "WebFetch(domain:pcteamsells.com)",
+      "WebFetch(domain:ensleyteam.com)",
+      "WebFetch(domain:scottsowles.com)",
+      "WebFetch(domain:garyhobsonhomes.com)",
+      "WebFetch(domain:seanaffrica.com)",
+      "WebFetch(domain:katejwhite.com)",
+      "WebFetch(domain:yeokumhomes.com)",
+      "WebFetch(domain:coulterrealestate.com)"
+    ]
+  }
+}

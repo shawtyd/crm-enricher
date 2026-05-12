@@ -1,322 +1,420 @@
 #!/usr/bin/env python3
 """
 MiRealSource agent enrichment script.
-Run locally: python3 mirealsource_enrich.py
-Outputs: enriched_contacts.csv
+
+Usage:
+    python3 mirealsource_enrich.py MyExport.csv             # enriches contacts
+    python3 mirealsource_enrich.py MyExport.csv out.csv     # custom output path
+    python3 mirealsource_enrich.py --probe                  # just show form fields
+
+Output: enriched_contacts.csv (or your custom output path)
 """
 
 import csv
+import os
 import re
+import sys
 import time
-import json
-from urllib.parse import urlencode, quote_plus
+from urllib.parse import urlencode
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 from html.parser import HTMLParser
 
-# ── Session cookies from your browser ─────────────────────────────────────────
+# ── Paste your browser session cookies here ───────────────────────────────────
 COOKIES = {
-    "CFID": "2213388",
-    "CFTOKEN": "f8d9ba5299d16243-F8CBB477-AF42-08E0-AD072387CA90FC9B",
+    "CFID":        "2213388",
+    "CFTOKEN":     "f8d9ba5299d16243-F8CBB477-AF42-08E0-AD072387CA90FC9B",
     "LOG_SESSION": "1778542205654161",
-    "NEWVISITOR": "1",
+    "NEWVISITOR":  "1",
 }
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/124.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.mirealsource.com/realtors.cfm",
-    "Cookie": "; ".join(f"{k}={v}" for k, v in COOKIES.items()),
-}
+BASE_URL   = "https://www.mirealsource.com/realtors.cfm"
+DELAY_SECS = 1.0
+DEBUG_DIR  = "mrs_debug"   # raw HTML responses saved here for inspection
 
-BASE_URL = "https://www.mirealsource.com/realtors.cfm"
 
-# ── Contact list ───────────────────────────────────────────────────────────────
-CONTACTS = [
-    {"id": "GdFQ4M4MBmHn7ZkCePp4", "first": "Lauren",        "last": "Fortinberry",  "phone": "+12482746556", "email": "lauren.fortinberry@cbrealty.com"},
-    {"id": "5MogfPfITdI4qEV5mcB5", "first": "Lonette",       "last": "Blackburn",    "phone": "+12488427575", "email": "scott@scottsowles.com"},
-    {"id": "vjmBENaCKPGwVRPwTUzC", "first": "Suzanne",       "last": "Mishler",      "phone": "+15172812862", "email": "smishler@cb-hb.com"},
-    {"id": "1rGgOeQz5zn6s6BaWubC", "first": "Carol",         "last": "Ray",          "phone": "+18102650206", "email": "cray@bhhsmi.com"},
-    {"id": "oHvAObMWmEQ4yTKJJuQo", "first": "Gary",          "last": "Hobson",       "phone": "+18102508347", "email": "gary@garyhobsonhomes.com"},
-    {"id": "scxReeTbbRae1XArXo3L", "first": "Danny",         "last": "Dedic",        "phone": "+15868556672", "email": "dannydedic@kw.com"},
-    {"id": "Rnq7dtstpyf6s8lb1MJD", "first": "Amy",           "last": "Martin",       "phone": "+15862424163", "email": "amy.martin@remax.net"},
-    {"id": "T76QYzppftFf7hxz8QNq", "first": "Casey",         "last": "Williams",     "phone": "+15867095386", "email": "casey@coulterrealestate.com"},
-    {"id": "sQXzAjbtXlt9XZWeZgDP", "first": "Savannah",      "last": "Mcfarlin",     "phone": "+15177757475", "email": "savannahkatie@kw.com"},
-    {"id": "bfDksOINjJhebU43O8Hi", "first": "Melissa",       "last": "Itsell",       "phone": "+15178816277", "email": "melissaitsell@cb-hb.com"},
-    {"id": "TjqoRFQ6WeRz3KY3u7Mz", "first": "Heaven",        "last": "Misale",       "phone": "+18102882921", "email": "heaven@riserealtymi.com"},
-    {"id": "Fc81wsygY2yMUCTdPfUJ", "first": "Jim",           "last": "Miller",       "phone": "+18109223187", "email": "jimmiller@remax.net"},
-    {"id": "SryT34wIpKqmhOGLIUAJ", "first": "Shayla",        "last": "Haboosh",      "phone": "+12489880366", "email": "shayla@anthonydjon.com"},
-    {"id": "hPHm61b1Y1FCPTSkFFEX", "first": "Darrin",        "last": "Denha",        "phone": "+12485900800", "email": "darrindenha@kw.com"},
-    {"id": "MMfSEWGK1KKbDJyQ1hEg", "first": "Debra",         "last": "Katz",         "phone": "+12484216751", "email": "debrakatz@kw.com"},
-    {"id": "Rjg2tqwjbU20QwcClTD5", "first": "Brystol",       "last": "Rumschlag",    "phone": "+18106180209", "email": "brystolr@kwglover.com"},
-    {"id": "OdMF0lf2OlJkSCbzxqN8", "first": "Nicole",        "last": "Rumbold",      "phone": "+18108369110", "email": "nicolegohnrumbold@gmail.com"},
-    {"id": "EoYkye2wc2GyrRNbsoGs", "first": "Jen",           "last": "Rygalski",     "phone": "+14197083689", "email": "jen@refacmi.com"},
-    {"id": "t11LvcCkvKWTclB0aZSu", "first": "Robert",        "last": "Bass",         "phone": "+12487241234", "email": "robertbass@nationalrealtycenters.com"},
-    {"id": "vpOCoGqIWz7n7VQJcuNl", "first": "Sean",          "last": "Affrica",      "phone": "+18105696531", "email": "sean@seanaffrica.com"},
-    {"id": "w6m7dLUfwBaq3rjaQEIg", "first": "Katie",         "last": "White",        "phone": "+18104447919", "email": "kate@katejwhite.com"},
-    {"id": "PWCfRbLUWZSEGvEHrtWT", "first": "Jamie",         "last": "Rodriguez",    "phone": "+18105773459", "email": "jamiemrodriguez@kw.com"},
-    {"id": "6j3u3mYoxVfTuwr9j0fU", "first": "Scott",         "last": "Duncan",       "phone": "+18055877697", "email": "scottduncan@kw.com"},
-    {"id": "JKZQF9CzbqDLS1Kfaujt", "first": "Renae",         "last": "Smith",        "phone": "+19364994815", "email": "renae.smith@cbunited.com"},
-    {"id": "BWL9UTQ7EoigzST9OYYu", "first": "Angela",        "last": "Aronson",      "phone": "+15862164349", "email": "aaronson@cbwm.com"},
-    {"id": "AkGqviqshAbQrx6uGC95", "first": "Patty",         "last": "Roberge",      "phone": "+12485053352", "email": "proberge@cbwm.com"},
-    {"id": "BS7swsV41L6tDqPJzIRb", "first": "Cindy",         "last": "Mastin",       "phone": "+12488544663", "email": "cmastin@kw.com"},
-    {"id": "o0M0ymUN3Dy8Sq2H5sXz", "first": "Benny",         "last": "Margolis",     "phone": "+17349855091", "email": "bmargolis@realestateone.com"},
-    {"id": "RSUcFGuwxpHOCeBSWUlT", "first": "Susheilla",     "last": "Mehta",        "phone": "+12488408714", "email": "su.mehta@realliving.com"},
-    {"id": "NQetGdkK0mqfo8RIlviN", "first": "Ryan",          "last": "Lonsway",      "phone": "+12487657691", "email": "rlonsway@wsrealtor.com"},
-    {"id": "3R5YgPnO43mjC9D2Zq15", "first": "Kevin",         "last": "Paton",        "phone": "+15862921770", "email": "kpaton@cbwm.com"},
-    {"id": "u46iIhOhjmY5lumlADpj", "first": "Miranda",       "last": "Moore",        "phone": "+16162285654", "email": "miranda@ensleyteam.com"},
-    {"id": "NvxJ0AcHDfgOrh1OenIe", "first": "Scott",         "last": "Levine",       "phone": "+12487605174", "email": "scott@maxbroock.com"},
-    {"id": "QuhlK3N4Cf1iNeli4e3E", "first": "Darren",        "last": "Peterfi",      "phone": "+18104984016", "email": "darren@pcteamsells.com"},
-    {"id": "ISbsASEtjkM77u0Clr2e", "first": "Shron",         "last": "Nathan",       "phone": "+15177061181", "email": "snathan@exitgl.com"},
-    {"id": "wTjvtCYEDz9zoMIeO6HB", "first": "Bradley",       "last": "Yeokum",       "phone": "+12484209671", "email": "brad@yeokumhomes.com"},
-    {"id": "oq753G8dEYLZgUegmYKi", "first": "Terence",       "last": "Frewen",       "phone": "+15172564321", "email": "tfrewen@coldwellbanker.com"},
-    {"id": "g76ymS50t2UVYcvWoEfO", "first": "Danny",         "last": "Gossman",      "phone": "+15868715914", "email": "d.gossman@innetworkrealestate.com"},
-    {"id": "4hbsdMoovx8ap9awgX6o", "first": "Stephen",       "last": "Wilhelm",      "phone": "+18102406138", "email": "stephen.wilhelm@realtyexecutives.com"},
-    {"id": "UHOooMg71d2YIJAh4CMI", "first": "Sean",          "last": "Lax",          "phone": "+17024826142", "email": "homes@pcteamsells.com"},
-    {"id": "u79uwZeJpYfKcSaOexxB", "first": "Kimberly",      "last": "Suozzi",       "phone": "+18104880085", "email": "coveragerealty@yahoo.com"},
-    {"id": "XFQOh2WV7wqVLHqLgrb5", "first": "Miriam",        "last": "Olsen",        "phone": "+15179805547", "email": "miriamo@cb-hb.com"},
-    {"id": "A2nUXhWTjw8ORFeUu4Wf", "first": "Stacie",        "last": "Neros",        "phone": "+15178962025", "email": "stacieneros@kw.com"},
-    {"id": "j5ESTtw2D0sxky46yr5z", "first": "Kyle",          "last": "Raup",         "phone": "+18105133417", "email": "kyle.raup@century21.com"},
-    {"id": "bvqx9ziDnK2I2k2b5wu9", "first": "Sean",          "last": "Pincombe",     "phone": "+12488727422", "email": "spincombe@realestateone.com"},
-    {"id": "BysOfrFd4RtiqAGdLKXY", "first": "Kristin",       "last": "Krieger",      "phone": "+15867471551", "email": "kristin.krieger@coldwellbanker.com"},
-    {"id": "rKvvcxD1biavcQIOZaIm", "first": "Janine",        "last": "Grillo",       "phone": "+15865315038", "email": "janinegrillo@kw.com"},
-    {"id": "zEjXf4MSePn2eyW8Zmfp", "first": "Missy",         "last": "Ludd",         "phone": "+12482068383", "email": "missyludd@howardhanna.com"},
-    {"id": "80PBM9dBvNKAptzgFPha", "first": "Anthony",       "last": "Benedetto",    "phone": "+12486446300", "email": "gschultz@cbwm.com"},
-    {"id": "tcFuubSBxmp1G774YkEI", "first": "Jeff",          "last": "Glover",       "phone": "+12487195292", "email": "jgaleads@kwglover.com"},
-]
+def make_headers(extra=None):
+    h = {
+        "User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/124.0.0.0 Safari/537.36",
+        "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer":         BASE_URL,
+        "Cookie":          "; ".join(f"{k}={v}" for k, v in COOKIES.items()),
+    }
+    if extra:
+        h.update(extra)
+    return h
+
+
+# ── HTML helpers ───────────────────────────────────────────────────────────────
+
+class FormParser(HTMLParser):
+    """Extracts the first <form> element's method, action, and field names."""
+    def __init__(self):
+        super().__init__()
+        self.forms = []
+        self._form = None
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "form":
+            self._form = {
+                "method": a.get("method", "get").upper(),
+                "action": a.get("action", ""),
+                "fields": [],
+            }
+        elif tag in ("input", "select", "textarea") and self._form is not None:
+            name = a.get("name", "")
+            val  = a.get("value", "")
+            if name:
+                self._form["fields"].append({"name": name, "value": val,
+                                             "type": a.get("type", "text")})
+
+    def handle_endtag(self, tag):
+        if tag == "form" and self._form is not None:
+            self.forms.append(self._form)
+            self._form = None
 
 
 class TableParser(HTMLParser):
-    """Extracts text rows from HTML tables."""
     def __init__(self):
         super().__init__()
-        self.in_td = False
-        self.in_th = False
+        self.in_cell = False
         self.rows = []
-        self._current_row = []
-        self._current_cell = []
+        self._row = []
+        self._cell = []
 
     def handle_starttag(self, tag, attrs):
         if tag == "tr":
-            self._current_row = []
+            self._row = []
         elif tag in ("td", "th"):
-            self.in_td = True
-            self._current_cell = []
+            self.in_cell = True
+            self._cell = []
 
     def handle_endtag(self, tag):
         if tag in ("td", "th"):
-            self.in_td = False
-            self._current_row.append(" ".join(self._current_cell).strip())
+            self.in_cell = False
+            self._row.append(" ".join(self._cell).strip())
         elif tag == "tr":
-            if any(c.strip() for c in self._current_row):
-                self.rows.append(self._current_row)
+            if any(c.strip() for c in self._row):
+                self.rows.append(self._row)
 
     def handle_data(self, data):
-        if self.in_td:
-            text = data.strip()
-            if text:
-                self._current_cell.append(text)
+        if self.in_cell and data.strip():
+            self._cell.append(data.strip())
 
 
-def fetch(url, params=None):
-    if params:
-        url = url + "?" + urlencode(params)
-    req = Request(url, headers=HEADERS)
+# ── Network ────────────────────────────────────────────────────────────────────
+
+def fetch_get(url, params=None, label=None):
+    full_url = url + ("?" + urlencode(params) if params else "")
+    req = Request(full_url, headers=make_headers())
+    return _do_fetch(req, label)
+
+
+def fetch_post(url, data, label=None):
+    body = urlencode(data).encode("utf-8")
+    req  = Request(url, data=body, headers=make_headers({
+        "Content-Type": "application/x-www-form-urlencoded",
+    }))
+    return _do_fetch(req, label)
+
+
+def _do_fetch(req, label=None):
     try:
-        with urlopen(req, timeout=15) as resp:
-            return resp.read().decode("utf-8", errors="replace")
+        with urlopen(req, timeout=20) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+            if label:
+                _save_debug(label, html)
+            return html
     except HTTPError as e:
-        print(f"  HTTP {e.code} for {url}")
+        print(f"    HTTP {e.code}")
         return ""
     except URLError as e:
-        print(f"  URL error for {url}: {e.reason}")
+        print(f"    URL error: {e.reason}")
         return ""
 
 
+def _save_debug(label, html):
+    os.makedirs(DEBUG_DIR, exist_ok=True)
+    safe = re.sub(r'[^a-zA-Z0-9_\-]', '_', label)[:60]
+    path = os.path.join(DEBUG_DIR, safe + ".html")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+# ── Form discovery ─────────────────────────────────────────────────────────────
+
 def probe_form():
-    """Fetch the search page to discover form field names."""
-    print("Probing MiRealSource search form...")
-    html = fetch(BASE_URL)
+    """
+    Fetch the search page, parse the form, and return:
+      { method, action, first_field, last_field, hidden_fields }
+    Returns None if the page can't be reached.
+    """
+    print("Probing MiRealSource search form …")
+    html = fetch_get(BASE_URL, label="probe")
     if not html:
+        print("  ✗ Could not reach MiRealSource.")
+        print("    → Check your cookies are fresh and you have internet access.")
         return None
 
-    # Find all <input> and <select> field names
-    fields = re.findall(r'<(?:input|select)[^>]+name=["\']([^"\']+)["\']', html, re.I)
-    print(f"  Form fields found: {fields}")
+    fp = FormParser()
+    fp.feed(html)
 
-    # Look for the form action
-    action = re.search(r'<form[^>]+action=["\']([^"\']+)["\']', html, re.I)
-    print(f"  Form action: {action.group(1) if action else 'none (same page)'}")
-
-    return html
-
-
-def search_agent(first, last):
-    """Try several search strategies for an agent name."""
-    results = []
-
-    # Strategy 1: last name search
-    params = {"lastname": last, "firstname": first, "Submit": "Search"}
-    html = fetch(BASE_URL, params)
-    if html:
-        results = parse_results(html, first, last)
-
-    # Strategy 2: last name only if no results
-    if not results:
-        params = {"lastname": last, "Submit": "Search"}
-        html = fetch(BASE_URL, params)
-        if html:
-            results = parse_results(html, first, last)
-
-    # Strategy 3: common ColdFusion search param names
-    if not results:
-        for param_set in [
-            {"lname": last, "fname": first},
-            {"agent_lastname": last, "agent_firstname": first},
-            {"searchlastname": last, "searchfirstname": first},
-            {"last_name": last, "first_name": first},
-        ]:
-            param_set["Submit"] = "Search"
-            html = fetch(BASE_URL, param_set)
-            if html:
-                results = parse_results(html, first, last)
-                if results:
-                    break
-
-    return results
-
-
-def parse_results(html, first, last):
-    """Extract agent rows from HTML that match the target name."""
-    matches = []
-
-    # Try table parser
-    parser = TableParser()
-    parser.feed(html)
-
-    target_name = f"{first} {last}".lower()
-
-    for row in parser.rows:
-        row_text = " ".join(row).lower()
-        if last.lower() in row_text and first.lower() in row_text:
-            matches.append(row)
-
-    # Also try regex for common patterns: name, office, email, phone, address
-    email_pattern = re.findall(
-        r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', html
-    )
-    phone_pattern = re.findall(
-        r'\(?\d{3}\)?[\s\-\.]\d{3}[\s\-\.]\d{4}', html
-    )
-
-    if matches:
-        return {"rows": matches, "emails": email_pattern, "phones": phone_pattern}
-
-    # If name not found in table rows, check if page has a "no results" indicator
-    if re.search(r'no.results|no.agents.found|0.results', html, re.I):
+    if not fp.forms:
+        print("  ✗ No <form> found on the page.")
+        print(f"    → Check {DEBUG_DIR}/probe.html to see what the server returned.")
         return None
 
-    # Return raw emails/phones if name appears anywhere in the page
-    if last.lower() in html.lower():
-        return {"rows": [], "emails": email_pattern, "phones": phone_pattern}
+    form = fp.forms[0]
+    print(f"  Method : {form['method']}")
+    print(f"  Action : {form['action'] or '(same page)'}")
+    print(f"  Fields : {[f['name'] for f in form['fields']]}")
+
+    # Find which fields look like first-name / last-name inputs
+    first_field = _find_field(form["fields"], ["firstname","first_name","fname",
+                                                "agent_firstname","searchfirstname",
+                                                "f_name","agentfirst"])
+    last_field  = _find_field(form["fields"], ["lastname","last_name","lname",
+                                                "agent_lastname","searchlastname",
+                                                "l_name","agentlast"])
+
+    print(f"  First-name field: {first_field or '(not found — will try all guesses)'}")
+    print(f"  Last-name  field: {last_field  or '(not found — will try all guesses)'}")
+
+    hidden = {f["name"]: f["value"]
+              for f in form["fields"]
+              if f.get("type", "").lower() == "hidden"}
+
+    action_url = form["action"] or BASE_URL
+    if action_url and not action_url.startswith("http"):
+        action_url = "https://www.mirealsource.com/" + action_url.lstrip("/")
+
+    return {
+        "method":      form["method"],
+        "action":      action_url,
+        "first_field": first_field,
+        "last_field":  last_field,
+        "hidden":      hidden,
+        "all_fields":  form["fields"],
+    }
+
+
+def _find_field(fields, candidates):
+    for candidate in candidates:
+        for f in fields:
+            if f["name"].lower() == candidate.lower():
+                return f["name"]
+    return None
+
+
+# ── Search ─────────────────────────────────────────────────────────────────────
+
+FALLBACK_FIRST_FIELDS = ["firstname","first_name","fname","agent_firstname","searchfirstname"]
+FALLBACK_LAST_FIELDS  = ["lastname","last_name","lname","agent_lastname","searchlastname"]
+
+
+def search_agent(first, last, form_info):
+    method     = form_info["method"]      if form_info else "POST"
+    action     = form_info["action"]      if form_info else BASE_URL
+    ff         = form_info["first_field"] if form_info else None
+    lf         = form_info["last_field"]  if form_info else None
+    hidden     = form_info["hidden"]      if form_info else {}
+
+    # Build a list of (first_key, last_key) combinations to try
+    first_keys = [ff] if ff else FALLBACK_FIRST_FIELDS
+    last_keys  = [lf] if lf else FALLBACK_LAST_FIELDS
+    combos     = [(fk, lk) for fk in first_keys for lk in last_keys]
+
+    label = f"{last}_{first}"
+
+    for fk, lk in combos:
+        params = dict(hidden)
+        params[fk] = first
+        params[lk] = last
+        params["Submit"] = "Search"
+
+        if method == "POST":
+            html = fetch_post(action, params, label=label)
+        else:
+            html = fetch_get(action, params, label=label)
+
+        if not html:
+            continue
+
+        result = parse_html(html, first, last)
+        if result:
+            return result
 
     return None
 
 
-def extract_best(contact, result):
-    """Pick the best values from a search result."""
-    enriched = {
-        "Contact Id": contact["id"],
-        "First Name": contact["first"],
-        "Last Name": contact["last"],
-        "Current Phone": contact["phone"],
-        "Current Email": contact["email"],
-        "MRS Office": "not found",
-        "MRS Address": "not found",
-        "MRS Email": "not found",
-        "MRS Phone": "not found",
-        "Notes": "",
+# ── Result parsing ─────────────────────────────────────────────────────────────
+
+def parse_html(html, first, last):
+    tp = TableParser()
+    tp.feed(html)
+
+    matched_rows = [
+        row for row in tp.rows
+        if last.lower() in " ".join(row).lower()
+        and first.lower() in " ".join(row).lower()
+    ]
+
+    emails = re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', html)
+    phones = re.findall(r'\(?\d{3}\)?[\s\-\.]\d{3}[\s\-\.]\d{4}', html)
+
+    if matched_rows:
+        return {"rows": matched_rows, "emails": emails, "phones": phones}
+
+    if re.search(r'no.?results|no.?agents.?found|0.?results', html, re.I):
+        return None
+
+    # Name present somewhere on page but not in a table row
+    if last.lower() in html.lower():
+        return {"rows": [], "emails": emails, "phones": phones}
+
+    return None
+
+
+def extract(contact, result):
+    row = {
+        "Contact Id":     contact.get("Contact Id", ""),
+        "First Name":     contact.get("First Name", ""),
+        "Last Name":      contact.get("Last Name", ""),
+        "Phone":          contact.get("Phone", ""),
+        "Existing Email": contact.get("Email", ""),
+        "Business Name":  contact.get("Business Name", ""),
+        "Full Address":   contact.get("Full Address", ""),
+        "Tags":           contact.get("Tags", ""),
+        "MRS Office":     "not found",
+        "MRS Address":    "not found",
+        "MRS Email":      "not found",
+        "MRS Phone":      "not found",
+        "MRS Notes":      "",
     }
 
     if not result:
-        enriched["Notes"] = "not found on MiRealSource"
-        return enriched
+        row["MRS Notes"] = "not found on MiRealSource"
+        return row
 
-    rows = result.get("rows", [])
+    rows   = result.get("rows", [])
     emails = result.get("emails", [])
     phones = result.get("phones", [])
 
     if rows:
-        # Heuristic: columns are often Name, Office, City, Phone, Email
         best = rows[0]
-        if len(best) >= 2:
-            enriched["MRS Office"] = best[1] if len(best) > 1 else "not found"
-        if len(best) >= 3:
-            enriched["MRS Address"] = best[2] if len(best) > 2 else "not found"
-        if len(best) >= 4:
-            # Find the cell that looks like a phone
-            for cell in best:
-                if re.match(r'\(?\d{3}\)?[\s\-\.]\d{3}[\s\-\.]\d{4}', cell):
-                    enriched["MRS Phone"] = cell
-                    break
+        if len(best) > 1:
+            row["MRS Office"]  = best[1]
+        if len(best) > 2:
+            row["MRS Address"] = best[2]
+        for cell in best:
+            if re.match(r'\(?\d{3}\)?[\s\-\.]\d{3}[\s\-\.]\d{4}', cell):
+                row["MRS Phone"] = cell
+                break
         for cell in best:
             if "@" in cell and "." in cell:
-                enriched["MRS Email"] = cell
+                row["MRS Email"] = cell
                 break
 
-    # Supplement with regex-extracted emails/phones
-    if enriched["MRS Email"] == "not found" and emails:
-        # Prefer emails that don't look like the webmaster/info address
+    if row["MRS Email"] == "not found":
         for e in emails:
             if not re.match(r'^(info|admin|webmaster|noreply|support)@', e, re.I):
-                enriched["MRS Email"] = e
+                row["MRS Email"] = e
                 break
 
-    if enriched["MRS Phone"] == "not found" and phones:
-        enriched["MRS Phone"] = phones[0]
+    if row["MRS Phone"] == "not found" and phones:
+        row["MRS Phone"] = phones[0]
 
-    return enriched
+    return row
 
+
+# ── CSV helpers ────────────────────────────────────────────────────────────────
+
+def load_contacts(path):
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        return list(csv.DictReader(f))
+
+
+def write_results(path, rows):
+    if not rows:
+        print("No results to write.")
+        return
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
-    print("=" * 60)
-    print("MiRealSource Agent Enrichment")
-    print("=" * 60)
+    if "--probe" in sys.argv:
+        probe_form()
+        print(f"\nRaw HTML saved to {DEBUG_DIR}/probe.html — open it to inspect the page.")
+        return
 
-    # Probe the form first
-    probe_html = probe_form()
+    in_file  = next((a for a in sys.argv[1:] if not a.startswith("-")), "input.csv")
+    out_file = sys.argv[sys.argv.index(in_file) + 1] \
+               if sys.argv.index(in_file) + 1 < len(sys.argv) \
+               and not sys.argv[sys.argv.index(in_file) + 1].startswith("-") \
+               else "enriched_contacts.csv"
 
-    results = []
-    for i, contact in enumerate(CONTACTS, 1):
-        name = f"{contact['first']} {contact['last']}"
-        print(f"[{i:02d}/{len(CONTACTS)}] Searching: {name}")
-        result = search_agent(contact["first"], contact["last"])
-        enriched = extract_best(contact, result)
+    print("=" * 60)
+    print("MiRealSource Contact Enrichment")
+    print(f"  Input : {in_file}")
+    print(f"  Output: {out_file}")
+    print(f"  Debug : {DEBUG_DIR}/  (raw HTML responses)")
+    print("=" * 60 + "\n")
+
+    try:
+        contacts = load_contacts(in_file)
+    except FileNotFoundError:
+        print(f"✗ File not found: {in_file}")
+        sys.exit(1)
+
+    print(f"Loaded {len(contacts)} contacts.\n")
+
+    form_info = probe_form()
+    if not form_info:
+        print("\n✗ Stopping — could not read the MiRealSource search form.")
+        print(f"  Open {DEBUG_DIR}/probe.html to see what the server returned.")
+        print("  If it shows a login page, your cookies have expired — grab fresh ones.")
+        sys.exit(1)
+
+    print()
+    results     = []
+    found_count = 0
+
+    for i, contact in enumerate(contacts, 1):
+        first = contact.get("First Name", "").strip()
+        last  = contact.get("Last Name", "").strip()
+
+        if not first and not last:
+            print(f"[{i:03d}/{len(contacts)}] Skipping — no name")
+            results.append(extract(contact, None))
+            continue
+
+        print(f"[{i:03d}/{len(contacts)}] {first} {last}")
+        result   = search_agent(first, last, form_info)
+        enriched = extract(contact, result)
         results.append(enriched)
+
         if result:
-            print(f"  ✓ Found — email: {enriched['MRS Email']}, office: {enriched['MRS Office']}")
+            found_count += 1
+            print(f"  ✓  email={enriched['MRS Email']}  office={enriched['MRS Office']}")
         else:
-            print(f"  ✗ Not found")
-        time.sleep(0.8)  # be polite to the server
+            print(f"  –  not found")
 
-    # Write CSV
-    out_file = "enriched_contacts.csv"
-    fieldnames = [
-        "Contact Id", "First Name", "Last Name",
-        "Current Phone", "Current Email",
-        "MRS Office", "MRS Address", "MRS Email", "MRS Phone", "Notes"
-    ]
-    with open(out_file, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(results)
+        time.sleep(DELAY_SECS)
 
-    found = sum(1 for r in results if r["Notes"] != "not found on MiRealSource")
-    print(f"\nDone. {found}/{len(results)} contacts enriched.")
-    print(f"Output saved to: {out_file}")
+    write_results(out_file, results)
+    print(f"\n{'='*60}")
+    print(f"Done.  {found_count}/{len(contacts)} enriched.")
+    print(f"Output → {out_file}")
+    print(f"Debug  → {DEBUG_DIR}/  (open any .html file to inspect a response)")
 
 
 if __name__ == "__main__":
