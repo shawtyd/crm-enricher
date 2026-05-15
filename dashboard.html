@@ -219,6 +219,7 @@ header p{opacity:.9;font-size:13px}
     <div class="form-section">
       <h3>📊 Pipeline Management</h3>
       <div class="form-grid">
+        <div class="form-group"><label>Inspections Scheduled</label><input type="number" id="inspections-scheduled" min="0" placeholder="Bookings today" value="0"></div>
         <div class="form-group"><label>Opportunities Reviewed</label><input type="number" id="opps-reviewed" min="0" placeholder="Opps reviewed today" value="0"></div>
         <div class="form-group"><label>VIP Agents Outreach</label><input type="number" id="pipeline-vip" min="0" placeholder="VIP agent contacts made" value="0"></div>
         <div class="form-group"><label>Inactive Agents Follow-up</label><input type="number" id="pipeline-inactive" min="0" placeholder="Inactive agents followed up" value="0"></div>
@@ -548,6 +549,7 @@ function loadData() {
   setInputVal('stage-outreach-sent', w.outreachSent);
   setInputVal('stage-data-updated', w.dataUpdated);
   setInputVal('stage-retention-ready', w.retentionReady);
+  setInputVal('inspections-scheduled', w.scheduled);
   setInputVal('pipeline-vip', w.vipOutreach);
   setInputVal('pipeline-inactive', w.inactiveFollowup);
   setInputVal('pipeline-new-agents', w.newAgents);
@@ -576,6 +578,7 @@ function saveMetrics() {
       realtorComms: getInputVal('realtor-comms')
     },
     workflow: {
+      scheduled: getInputVal('inspections-scheduled'),
       newTop100: getInputVal('stage-new-top100'),
       dataNeeded: getInputVal('stage-data-needed'),
       outreachSent: getInputVal('stage-outreach-sent'),
@@ -607,6 +610,7 @@ function saveMetrics() {
 function resetMetrics() {
   if (confirm('Reset today\'s form? Saved data is not deleted.')) {
     document.querySelectorAll('input[type="number"]').forEach(i => i.value = 0);
+    saveMetrics();
     showNotification('Form reset.');
   }
 }
