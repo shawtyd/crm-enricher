@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golden Bear Home Inspections - Operations Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f7fa;color:#2c3e50;line-height:1.6}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:30px;border-radius:12px;margin-bottom:24px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
+header h1{font-size:26px;font-weight:600;margin-bottom:4px}
+header p{opacity:.9;font-size:13px}
+.user-info{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2);font-size:14px}
+.tabs{display:flex;gap:6px;margin-bottom:0;border-bottom:2px solid #e0e6ed;flex-wrap:wrap}
+.tab{padding:12px 20px;background:white;border:none;cursor:pointer;font-size:14px;font-weight:500;color:#64748b;border-radius:8px 8px 0 0;transition:all .2s;position:relative}
+.tab.active{color:#667eea}
+.tab.active::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:3px;background:#667eea}
+.tab:hover:not(.active){color:#667eea;background:#f8fafc}
+.tab-content{display:none;padding-top:24px}
+.tab-content.active{display:block;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+.kpi-card{background:white;padding:22px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);transition:transform .2s,box-shadow .2s}
+.kpi-card:hover{transform:translateY(-4px);box-shadow:0 8px 20px rgba(0,0,0,.11)}
+.kpi-label{font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.kpi-value{font-size:34px;font-weight:700;color:#1e293b;margin-bottom:4px}
+.kpi-target{font-size:13px;color:#94a3b8}
+.progress-bar{background:#e2e8f0;height:8px;border-radius:10px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:10px;transition:width .5s ease}
+.progress-fill.warning{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+.progress-fill.success{background:linear-gradient(90deg,#10b981,#059669)}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;margin-bottom:24px}
+.card{background:white;padding:24px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px}
+.card h3{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:16px;text-transform:uppercase;letter-spacing:.5px;padding-bottom:10px;border-bottom:2px solid #667eea}
+.eod-summary{background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:white;padding:28px;border-radius:12px;margin-top:24px;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+.eod-summary h3{font-size:18px;margin-bottom:18px}
+.eod-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.15)}
+.eod-item:last-child{border-bottom:none}
+.form-section{background:white;padding:26px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:18px}
+.form-section h3{font-size:16px;color:#1e293b;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #667eea}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.form-group{display:flex;flex-direction:column}
+.form-group label{font-size:13px;color:#475569;margin-bottom:6px;font-weight:500}
+.form-group input{padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:15px;transition:all .2s}
+.form-group input:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.1)}
+.button-group{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+.btn{padding:12px 24px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:white;box-shadow:0 4px 12px rgba(102,126,234,.4)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(102,126,234,.5)}
+.btn-secondary{background:white;color:#667eea;border:2px solid #667eea}
+.btn-secondary:hover{background:#667eea;color:white}
+.goal-item{display:grid;grid-template-columns:2fr 1fr 1fr 100px;gap:12px;align-items:center;padding:14px;background:#f8fafc;border-radius:8px;margin-bottom:10px}
+.goal-status{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.status-success{background:#dcfce7;color:#166534}
+.status-warning{background:#fef3c7;color:#92400e}
+.status-danger{background:#fee2e2;color:#991b1b}
+.alert{padding:14px 18px;border-radius:8px;margin-bottom:18px;display:flex;align-items:center;gap:10px;font-size:14px}
+.alert-info{background:#dbeafe;color:#1e40af;border-left:4px solid #3b82f6}
+.alert-warning{background:#fef3c7;color:#92400e;border-left:4px solid #f59e0b}
+
+/* RP Management specific */
+.rp-hero{background:linear-gradient(135deg,#0f4c75,#1b6ca8);color:white;padding:28px;border-radius:12px;margin-bottom:24px}
+.rp-hero h2{font-size:22px;margin-bottom:8px}
+.rp-hero p{opacity:.85;font-size:14px}
+.objectives-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:20px}
+.obj-card{background:white;padding:18px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.06);display:flex;align-items:flex-start;gap:14px}
+.obj-num{background:linear-gradient(135deg,#667eea,#764ba2);color:white;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.obj-text{font-size:14px;color:#334155;font-weight:500}
+.non-neg{background:#fff1f2;border-left:4px solid #ef4444;padding:16px;border-radius:8px;margin-bottom:12px;font-size:14px;color:#7f1d1d;display:flex;align-items:center;gap:10px}
+.owner-card{background:white;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.06);overflow:hidden;margin-bottom:10px}
+.owner-header{padding:14px 18px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:600;font-size:14px}
+.owner-body{padding:16px 18px}
+.owner-item{font-size:14px;color:#475569;padding:4px 0;display:flex;align-items:center;gap:8px}
+.owner-item::before{content:'•';color:#667eea;font-weight:700}
+.kpi-table{width:100%;border-collapse:collapse;font-size:14px}
+.kpi-table th{background:#667eea;color:white;padding:12px 16px;text-align:left;font-weight:600}
+.kpi-table td{padding:11px 16px;border-bottom:1px solid #e2e8f0;color:#334155}
+.kpi-table tr:last-child td{border-bottom:none}
+.kpi-table tr:hover td{background:#f8fafc}
+.freq-table{width:100%;border-collapse:collapse;font-size:14px}
+.freq-table th{background:#1b6ca8;color:white;padding:12px 16px;text-align:left}
+.freq-table td{padding:11px 16px;border-bottom:1px solid #e2e8f0;color:#334155}
+.freq-badge{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.freq-daily{background:#dcfce7;color:#166534}
+.freq-weekly{background:#dbeafe;color:#1e40af}
+.freq-monthly{background:#fef3c7;color:#92400e}
+.success-box{background:linear-gradient(135deg,#064e3b,#065f46);color:white;padding:24px;border-radius:12px;margin-top:16px}
+.success-box h3{margin-bottom:14px;font-size:16px}
+.success-item{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14px;opacity:.9}
+.success-item::before{content:'✓';background:rgba(255,255,255,.2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+
+/* EOW Report */
+.eow-report{background:linear-gradient(135deg,#134e4a,#0f766e);color:white;padding:28px;border-radius:12px;margin-top:24px}
+.eow-report h3{font-size:18px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.eow-section{margin-bottom:18px}
+.eow-section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.7;margin-bottom:10px}
+.eow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.eow-stat{background:rgba(255,255,255,.1);border-radius:8px;padding:14px;text-align:center}
+.eow-stat-value{font-size:26px;font-weight:700}
+.eow-stat-label{font-size:12px;opacity:.8;margin-top:4px}
+.eow-stat-target{font-size:11px;opacity:.6;margin-top:2px}
+
+@media(max-width:768px){.kpi-grid{grid-template-columns:1fr}.chart-grid{grid-template-columns:1fr}.goal-item{grid-template-columns:1fr}.tabs{overflow-x:auto}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🏠 Golden Bear Home Inspections</h1>
+    <p>Operations Specialist Dashboard</p>
+    <div class="user-info">
+      <div><strong>Duff Rose Trono</strong> — Operations Specialist / Admin</div>
+      <div id="currentDate"></div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="operations">Operations</button>
+    <button class="tab" data-tab="metrics">Metric Board</button>
+    <button class="tab" data-tab="goals">Goal Setting</button>
+    <button class="tab" data-tab="rp">RP Management</button>
+  </div>
+
+  <!-- ===== OPERATIONS TAB ===== -->
+  <div id="operations" class="tab-content active">
+    <div class="alert alert-info">📊 Dashboard updates from your Metric Board inputs. Data is saved locally in your browser.</div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Leads Processed Today</div>
+        <div class="kpi-value" id="kpi-leads">0</div>
+        <div class="kpi-target">Target: 100/day</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-leads" style="width:0%"></div></div>
+        <div style="font-size:12px;margin-top:4px;color:#64748b" id="progress-leads-text">0%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Contacts Updated</div>
+        <div class="kpi-value" id="kpi-contacts">0</div>
+        <div class="kpi-target">Target: 20/day</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-contacts" style="width:0%"></div></div>
+        <div style="font-size:12px;margin-top:4px;color:#64748b" id="progress-contacts-text">0%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">RP Contacts Updated</div>
+        <div class="kpi-value" id="kpi-rp-contacts">0</div>
+        <div class="kpi-target">Weekly target: 25+</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-rp-contacts" style="width:0%"></div></div>
+        <div style="font-size:12px;margin-top:4px;color:#64748b" id="progress-rp-contacts-text">0%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Inspections Scheduled</div>
+        <div class="kpi-value" id="kpi-inspections">0</div>
+        <div class="kpi-target">Today's bookings</div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card">
+        <h3>📈 Monthly Leads (2,200 Target)</h3>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-weight:700;font-size:26px" id="monthly-actual">0</span>
+          <span style="color:#64748b" id="monthly-percent">0%</span>
+        </div>
+        <div class="progress-bar" style="height:12px"><div class="progress-fill" id="progress-monthly" style="width:0%"></div></div>
+        <div style="margin-top:14px;font-size:13px;color:#64748b;padding-top:12px;border-top:1px solid #e2e8f0">
+          Cumulative leads processed toward monthly goal
+        </div>
+      </div>
+      <div class="card">
+        <h3>🎯 Daily Goal Achievement</h3>
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-size:58px;font-weight:700;color:#667eea" id="daily-percentage">0%</div>
+          <div style="font-size:16px;color:#64748b;margin-top:6px">of 100-lead target</div>
+          <div style="margin-top:14px;padding:12px;background:#f1f5f9;border-radius:8px;font-size:13px;color:#475569" id="daily-status">Start logging today's activities</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card">
+        <h3>🔄 Inspection Workflow Stages</h3>
+        <div id="workflow-display"></div>
+      </div>
+      <div class="card">
+        <h3>⚠️ Attention Needed</h3>
+        <div id="attention-list"><div style="color:#64748b;text-align:center;padding:30px">All metrics on track ✓</div></div>
+      </div>
+    </div>
+
+    <div class="eod-summary">
+      <h3>📋 End of Day Summary</h3>
+      <div class="eod-item"><span>Leads Processed:</span><strong id="eod-leads">0</strong></div>
+      <div class="eod-item"><span>Contacts Updated (General):</span><strong id="eod-contacts">0</strong></div>
+      <div class="eod-item"><span>Opportunities Reviewed:</span><strong id="eod-opps">0</strong></div>
+      <div class="eod-item"><span>Inspections Scheduled:</span><strong id="eod-inspections">0</strong></div>
+      <div class="eod-item"><span>Calls Handled:</span><strong id="eod-calls">0</strong></div>
+      <div class="eod-item"><span>RP Contacts Updated:</span><strong id="eod-rp-contacts">0</strong></div>
+      <div class="eod-item"><span>Inactive Agents Contacted:</span><strong id="eod-inactive">0</strong></div>
+      <div class="eod-item"><span>Daily Goal Achievement:</span><strong id="eod-percentage">0%</strong></div>
+      <button class="btn btn-secondary" onclick="copyEODSummary()" style="margin-top:18px;width:100%">📋 Copy EOD Summary for Joe</button>
+    </div>
+  </div>
+
+  <!-- ===== METRIC BOARD TAB ===== -->
+  <div id="metrics" class="tab-content">
+    <div class="alert alert-info">💡 Enter today's activities. Data saves automatically and updates all tabs in real-time.</div>
+
+    <div class="form-section">
+      <h3>📞 Contact & Lead Management</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>Leads Processed Today ★</label><input type="number" id="leads-processed" min="0" placeholder="Target: 100" value="0"></div>
+        <div class="form-group"><label>Contacts Added</label><input type="number" id="contacts-added" min="0" placeholder="New contacts" value="0"></div>
+        <div class="form-group"><label>Contacts Updated</label><input type="number" id="contacts-updated" min="0" placeholder="Updates/corrections" value="0"></div>
+        <div class="form-group"><label>Dispositions Added</label><input type="number" id="dispositions-added" min="0" placeholder="Status updates" value="0"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>📊 Pipeline Management</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>Opportunities Reviewed</label><input type="number" id="opps-reviewed" min="0" placeholder="Opps reviewed today" value="0"></div>
+        <div class="form-group"><label>VIP Agents Outreach</label><input type="number" id="pipeline-vip" min="0" placeholder="VIP agent contacts made" value="0"></div>
+        <div class="form-group"><label>Inactive Agents Follow-up</label><input type="number" id="pipeline-inactive" min="0" placeholder="Inactive agents followed up" value="0"></div>
+        <div class="form-group"><label>New Agents Updated</label><input type="number" id="pipeline-new-agents" min="0" placeholder="New agents added/updated" value="0"></div>
+        <div class="form-group"><label>Opportunities Moved Forward</label><input type="number" id="opps-moved" min="0" value="0"></div>
+        <div class="form-group"><label>Dead Leads Marked</label><input type="number" id="dead-leads" min="0" value="0"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>🔍 Top 100 Data Cleanup — Workflow Stages</h3>
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;padding:10px 14px;background:#f1f5f9;border-radius:8px;border-left:3px solid #667eea">
+        Tags: <strong>VIP</strong> · <strong>Active Agent</strong> — move each contact through these stages as you work their record.
+      </p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>1 · New Top 100</label>
+          <input type="number" id="stage-new-top100" min="0" placeholder="Just added, no work started" value="0">
+        </div>
+        <div class="form-group">
+          <label>2 · Data Needed</label>
+          <input type="number" id="stage-data-needed" min="0" placeholder="Missing address, bday, phone…" value="0">
+        </div>
+        <div class="form-group">
+          <label>3 · Outreach Sent</label>
+          <input type="number" id="stage-outreach-sent" min="0" placeholder="Text/email sent, awaiting reply" value="0">
+        </div>
+        <div class="form-group">
+          <label>4 · Data Updated</label>
+          <input type="number" id="stage-data-updated" min="0" placeholder="Fields entered, record clean" value="0">
+        </div>
+        <div class="form-group">
+          <label>5 · Retention Ready</label>
+          <input type="number" id="stage-retention-ready" min="0" placeholder="Eligible for postcards & follow-up" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>💬 Communication</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>Calls Handled</label><input type="number" id="calls-handled" min="0" value="0"></div>
+        <div class="form-group"><label>Follow-ups Sent</label><input type="number" id="followups-sent" min="0" value="0"></div>
+        <div class="form-group"><label>Realtor Communications</label><input type="number" id="realtor-comms" min="0" value="0"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>🏡 RP Management Activities</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>RP Contacts Updated (CRM)</label><input type="number" id="rp-contacts-updated" min="0" placeholder="Weekly target: 25+" value="0"></div>
+        <div class="form-group"><label>Duplicate Records Removed</label><input type="number" id="rp-duplicates-removed" min="0" value="0"></div>
+        <div class="form-group"><label>Missing Data Fields Resolved</label><input type="number" id="rp-missing-data" min="0" placeholder="Weekly target: 10+" value="0"></div>
+        <div class="form-group"><label>Inactive Agents Contacted</label><input type="number" id="rp-inactive-agents" min="0" placeholder="Monthly target: 10+" value="0"></div>
+        <div class="form-group"><label>Postcards Sent</label><input type="number" id="rp-postcards" min="0" placeholder="Weekly: 5–10" value="0"></div>
+        <div class="form-group"><label>Birthday Cards Sent</label><input type="number" id="rp-birthday-cards" min="0" placeholder="Monthly" value="0"></div>
+        <div class="form-group"><label>Realtor Follow-ups Sent</label><input type="number" id="rp-followups" min="0" placeholder="Weekly" value="0"></div>
+        <div class="form-group"><label>Agent Data Cleanups Done</label><input type="number" id="rp-cleanups" min="0" placeholder="Daily" value="0"></div>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-primary" onclick="saveMetrics()">💾 Save Today's Data</button>
+      <button class="btn btn-secondary" onclick="resetMetrics()">🔄 Reset Form</button>
+    </div>
+
+    <!-- EOW Report Section -->
+    <div class="eow-report">
+      <h3>📊 End of Week Report</h3>
+      <div class="eow-section">
+        <div class="eow-section-title">General Operations</div>
+        <div class="eow-grid">
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-leads">0</div><div class="eow-stat-label">Leads Processed</div><div class="eow-stat-target">Target: 500/wk</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-contacts">0</div><div class="eow-stat-label">Contacts Updated</div><div class="eow-stat-target">Target: 100/wk</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-calls">0</div><div class="eow-stat-label">Calls Handled</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-inspections">0</div><div class="eow-stat-label">Inspections Scheduled</div></div>
+        </div>
+      </div>
+      <div class="eow-section">
+        <div class="eow-section-title">RP Management</div>
+        <div class="eow-grid">
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-rp-contacts">0</div><div class="eow-stat-label">RP Contacts Updated</div><div class="eow-stat-target">Target: 25+</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-rp-duplicates">0</div><div class="eow-stat-label">Duplicates Removed</div><div class="eow-stat-target">Weekly Reduction</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-rp-missing">0</div><div class="eow-stat-label">Missing Data Fixed</div><div class="eow-stat-target">Target: 10+</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-rp-postcards">0</div><div class="eow-stat-label">Postcards Sent</div><div class="eow-stat-target">Target: 5–10</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-rp-followups">0</div><div class="eow-stat-label">Realtor Follow-ups</div></div>
+          <div class="eow-stat"><div class="eow-stat-value" id="eow-rp-inactive">0</div><div class="eow-stat-label">Inactive Agents Contacted</div><div class="eow-stat-target">Target: 10+/mo</div></div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="copyEOWSummary()" style="margin-top:18px;width:100%">📋 Copy EOW Report for Joe</button>
+    </div>
+  </div>
+
+  <!-- ===== GOALS TAB ===== -->
+  <div id="goals" class="tab-content">
+    <div class="alert alert-warning">⚠️ Goals auto-track from your daily inputs. Targets update as you save.</div>
+    <div class="card">
+      <h3>📅 Daily Goals</h3>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Leads Processed</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>100</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-daily-leads">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-daily-leads-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Contacts Updated</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>20</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-daily-crm">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-daily-crm-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">RP Agent Cleanups</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>Daily</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-daily-cleanups">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-daily-cleanups-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📆 Weekly Goals</h3>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">RP Contacts Updated</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>25+</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-weekly-rp">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-weekly-rp-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Missing Data Resolved</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>10+</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-weekly-missing">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-weekly-missing-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Postcards Sent</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>5–10</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-weekly-postcards">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-weekly-postcards-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Realtor Follow-ups</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>Weekly</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-weekly-followups">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-weekly-followups-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🗓️ Monthly Goals</h3>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Total Leads</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>2,200</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-monthly-leads">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-monthly-leads-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Inactive Agents Contacted</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>10+</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-monthly-inactive">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-monthly-inactive-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">Birthday Cards Sent</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>Monthly</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-monthly-bday">0</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill" id="goal-monthly-bday-bar" style="width:0%"></div></div>
+      </div>
+      <div class="goal-item">
+        <div style="font-weight:500;color:#1e293b">CRM Accuracy</div>
+        <div style="font-size:13px;color:#64748b">Target: <strong>95%+</strong></div>
+        <div style="font-size:13px;color:#64748b">Actual: <strong id="goal-monthly-accuracy">—</strong></div>
+        <div class="progress-bar" style="width:100px"><div class="progress-fill success" id="goal-monthly-accuracy-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;padding:12px;background:#f8fafc;border-radius:8px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="goal-status status-success">✓ On Track</span> 80%+ of target</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="goal-status status-warning">⚠️ At Risk</span> 50–79% of target</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="goal-status status-danger">❌ Behind</span> &lt;50% of target</div>
+    </div>
+  </div>
+
+  <!-- ===== RP MANAGEMENT TAB ===== -->
+  <div id="rp" class="tab-content">
+    <div class="rp-hero">
+      <h2>🏡 Realtor Partner (RP) Management</h2>
+      <p>Standard Operating Procedures, KPIs, and task framework for building and maintaining realtor relationships.</p>
+    </div>
+
+    <!-- Objectives -->
+    <div class="card">
+      <h3>🎯 Objectives</h3>
+      <div class="objectives-grid">
+        <div class="obj-card"><div class="obj-num">1</div><div class="obj-text">Maintain accurate realtor records in CRM</div></div>
+        <div class="obj-card"><div class="obj-num">2</div><div class="obj-text">Increase repeat referral business</div></div>
+        <div class="obj-card"><div class="obj-num">3</div><div class="obj-text">Build stronger realtor relationships</div></div>
+        <div class="obj-card"><div class="obj-num">4</div><div class="obj-text">Standardize follow-up procedures</div></div>
+        <div class="obj-card"><div class="obj-num">5</div><div class="obj-text">Create a scalable appreciation system</div></div>
+        <div class="obj-card"><div class="obj-num">6</div><div class="obj-text">Ensure active agents receive regular communication</div></div>
+        <div class="obj-card"><div class="obj-num">7</div><div class="obj-text">Reduce owner involvement in routine CRM tasks</div></div>
+      </div>
+    </div>
+
+    <!-- Ownership -->
+    <div class="card">
+      <h3>👥 Ownership & Accountability</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+        <div class="owner-card">
+          <div class="owner-header">Duff — Operations Specialist</div>
+          <div class="owner-body">
+            <div class="owner-item">CRM management & organization</div>
+            <div class="owner-item">Agent outreach & communication</div>
+            <div class="owner-item">Reporting & KPI tracking</div>
+          </div>
+        </div>
+        <div class="owner-card">
+          <div class="owner-header">Wren</div>
+          <div class="owner-body">
+            <div class="owner-item">Handwritten postcards</div>
+            <div class="owner-item">Birthday cards</div>
+          </div>
+        </div>
+        <div class="owner-card">
+          <div class="owner-header">Joseph — Oversight</div>
+          <div class="owner-body">
+            <div class="owner-item">Approvals</div>
+            <div class="owner-item">KPI review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Non-Negotiables -->
+    <div class="card">
+      <h3>🚫 Non-Negotiables</h3>
+      <div class="non-neg">🔒 No CRM system changes without approval</div>
+      <div class="non-neg">🔒 No workflow or automation creation without approval</div>
+      <div class="non-neg">🔒 No funnel or landing page work without approval</div>
+      <div class="non-neg">🔒 CRM accuracy is mandatory at all times</div>
+      <div class="non-neg">🔒 All agent communication must remain professional and organized</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="card">
+      <h3>📊 Weekly KPI Targets</h3>
+      <table class="kpi-table">
+        <thead><tr><th>KPI</th><th>Weekly Goal</th></tr></thead>
+        <tbody>
+          <tr><td>Contacts Updated</td><td><strong>25+</strong></td></tr>
+          <tr><td>Duplicate Records Removed</td><td><strong>Weekly Reduction</strong></td></tr>
+          <tr><td>Missing Data Resolved</td><td><strong>10+</strong></td></tr>
+          <tr><td>Postcards Sent</td><td><strong>5–10</strong></td></tr>
+          <tr><td>Birthday Cards Sent</td><td><strong>Monthly</strong></td></tr>
+          <tr><td>Inactive Agents Contacted</td><td><strong>10+ (monthly)</strong></td></tr>
+          <tr><td>CRM Accuracy</td><td><strong>95%+</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Task Frequency -->
+    <div class="card">
+      <h3>📅 Task Frequency</h3>
+      <table class="freq-table">
+        <thead><tr><th>Task</th><th>Frequency</th></tr></thead>
+        <tbody>
+          <tr><td>CRM Updates</td><td><span class="freq-badge freq-daily">Daily</span></td></tr>
+          <tr><td>Agent Data Cleanup</td><td><span class="freq-badge freq-daily">Daily</span></td></tr>
+          <tr><td>Realtor Follow-up</td><td><span class="freq-badge freq-weekly">Weekly</span></td></tr>
+          <tr><td>Postcard Assignments</td><td><span class="freq-badge freq-weekly">Weekly</span></td></tr>
+          <tr><td>Birthday Card Prep</td><td><span class="freq-badge freq-monthly">Monthly</span></td></tr>
+          <tr><td>Inactive Agent Outreach</td><td><span class="freq-badge freq-monthly">Monthly</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Success Definition -->
+    <div class="success-box">
+      <h3>✅ What Success Looks Like</h3>
+      <div class="success-item">Realtors consistently hear from Golden Bear</div>
+      <div class="success-item">CRM stays organized and usable</div>
+      <div class="success-item">Relationships deepen over time</div>
+      <div class="success-item">Referral business increases</div>
+      <div class="success-item">Appreciation touches happen consistently</div>
+      <div class="success-item">The process operates without Joseph manually managing every detail</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'golden-bear-ops-v2';
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function() { switchTab(this.dataset.tab); }));
+  document.querySelectorAll('input[type="number"]').forEach(i => i.addEventListener('change', saveMetrics));
+  loadData();
+  updateAllDisplays();
+});
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  if (name !== 'metrics') updateAllDisplays();
+}
+
+function getInputVal(id) { return parseInt(document.getElementById(id).value) || 0; }
+function setInputVal(id, val) { document.getElementById(id).value = val || 0; }
+
+function loadData() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (!data) return;
+  const m = JSON.parse(data);
+  const d = m.daily || {}, w = m.workflow || {}, rp = m.rp || {};
+  setInputVal('leads-processed', d.leadsProcessed);
+  setInputVal('contacts-added', d.contactsAdded);
+  setInputVal('contacts-updated', d.contactsUpdated);
+  setInputVal('dispositions-added', d.dispositionsAdded);
+  setInputVal('opps-reviewed', d.oppsReviewed);
+  setInputVal('opps-moved', d.oppsMoved);
+  setInputVal('dead-leads', d.deadLeads);
+  setInputVal('calls-handled', d.callsHandled);
+  setInputVal('followups-sent', d.followupsSent);
+  setInputVal('realtor-comms', d.realtorComms);
+  setInputVal('stage-new-top100', w.newTop100);
+  setInputVal('stage-data-needed', w.dataNeeded);
+  setInputVal('stage-outreach-sent', w.outreachSent);
+  setInputVal('stage-data-updated', w.dataUpdated);
+  setInputVal('stage-retention-ready', w.retentionReady);
+  setInputVal('pipeline-vip', w.vipOutreach);
+  setInputVal('pipeline-inactive', w.inactiveFollowup);
+  setInputVal('pipeline-new-agents', w.newAgents);
+  setInputVal('rp-contacts-updated', rp.contactsUpdated);
+  setInputVal('rp-duplicates-removed', rp.duplicatesRemoved);
+  setInputVal('rp-missing-data', rp.missingData);
+  setInputVal('rp-inactive-agents', rp.inactiveAgents);
+  setInputVal('rp-postcards', rp.postcards);
+  setInputVal('rp-birthday-cards', rp.birthdayCards);
+  setInputVal('rp-followups', rp.followups);
+  setInputVal('rp-cleanups', rp.cleanups);
+}
+
+function saveMetrics() {
+  const metrics = {
+    daily: {
+      leadsProcessed: getInputVal('leads-processed'),
+      contactsAdded: getInputVal('contacts-added'),
+      contactsUpdated: getInputVal('contacts-updated'),
+      dispositionsAdded: getInputVal('dispositions-added'),
+      oppsReviewed: getInputVal('opps-reviewed'),
+      oppsMoved: getInputVal('opps-moved'),
+      deadLeads: getInputVal('dead-leads'),
+      callsHandled: getInputVal('calls-handled'),
+      followupsSent: getInputVal('followups-sent'),
+      realtorComms: getInputVal('realtor-comms')
+    },
+    workflow: {
+      newTop100: getInputVal('stage-new-top100'),
+      dataNeeded: getInputVal('stage-data-needed'),
+      outreachSent: getInputVal('stage-outreach-sent'),
+      dataUpdated: getInputVal('stage-data-updated'),
+      retentionReady: getInputVal('stage-retention-ready'),
+      vipOutreach: getInputVal('pipeline-vip'),
+      inactiveFollowup: getInputVal('pipeline-inactive'),
+      newAgents: getInputVal('pipeline-new-agents'),
+      oppsMoved: getInputVal('opps-moved'),
+      deadLeads: getInputVal('dead-leads')
+    },
+    rp: {
+      contactsUpdated: getInputVal('rp-contacts-updated'),
+      duplicatesRemoved: getInputVal('rp-duplicates-removed'),
+      missingData: getInputVal('rp-missing-data'),
+      inactiveAgents: getInputVal('rp-inactive-agents'),
+      postcards: getInputVal('rp-postcards'),
+      birthdayCards: getInputVal('rp-birthday-cards'),
+      followups: getInputVal('rp-followups'),
+      cleanups: getInputVal('rp-cleanups')
+    },
+    lastUpdated: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(metrics));
+  updateAllDisplays();
+  showNotification('✅ Data saved!');
+}
+
+function resetMetrics() {
+  if (confirm('Reset today\'s form? Saved data is not deleted.')) {
+    document.querySelectorAll('input[type="number"]').forEach(i => i.value = 0);
+    showNotification('Form reset.');
+  }
+}
+
+function updateAllDisplays() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  const m = JSON.parse(raw);
+  const d = m.daily || {}, w = m.workflow || {}, rp = m.rp || {};
+
+  // KPIs
+  updateKPI('kpi-leads', d.leadsProcessed, 100, 'progress-leads');
+  updateKPI('kpi-contacts', d.contactsUpdated, 20, 'progress-contacts');
+  updateKPI('kpi-rp-contacts', rp.contactsUpdated, 25, 'progress-rp-contacts');
+  document.getElementById('kpi-inspections').textContent = w.scheduled || 0;
+
+  // Daily %
+  const dpct = Math.min(Math.round(((d.leadsProcessed||0)/100)*100),100);
+  document.getElementById('daily-percentage').textContent = dpct + '%';
+  let st = 'Start logging today\'s activities.';
+  if (dpct >= 80) st = '🎉 Excellent! You\'re crushing it today!';
+  else if (dpct >= 50) st = '👍 Good progress — keep the momentum!';
+  else if (dpct > 0) st = '⚡ Let\'s pick up the pace!';
+  document.getElementById('daily-status').textContent = st;
+
+  // Monthly
+  const mo = d.leadsProcessed || 0;
+  const mpct = Math.round((mo/2200)*100);
+  document.getElementById('monthly-actual').textContent = mo.toLocaleString();
+  document.getElementById('monthly-percent').textContent = mpct + '%';
+  setBar('progress-monthly', mpct);
+
+  // EOD
+  document.getElementById('eod-leads').textContent = d.leadsProcessed||0;
+  document.getElementById('eod-contacts').textContent = d.contactsUpdated||0;
+  document.getElementById('eod-opps').textContent = d.oppsReviewed||0;
+  document.getElementById('eod-inspections').textContent = w.scheduled||0;
+  document.getElementById('eod-calls').textContent = d.callsHandled||0;
+  document.getElementById('eod-rp-contacts').textContent = rp.contactsUpdated||0;
+  document.getElementById('eod-inactive').textContent = rp.inactiveAgents||0;
+  document.getElementById('eod-percentage').textContent = dpct + '%';
+
+  // EOW
+  document.getElementById('eow-leads').textContent = d.leadsProcessed||0;
+  document.getElementById('eow-contacts').textContent = d.contactsUpdated||0;
+  document.getElementById('eow-calls').textContent = d.callsHandled||0;
+  document.getElementById('eow-inspections').textContent = w.scheduled||0;
+  document.getElementById('eow-rp-contacts').textContent = rp.contactsUpdated||0;
+  document.getElementById('eow-rp-duplicates').textContent = rp.duplicatesRemoved||0;
+  document.getElementById('eow-rp-missing').textContent = rp.missingData||0;
+  document.getElementById('eow-rp-postcards').textContent = rp.postcards||0;
+  document.getElementById('eow-rp-followups').textContent = rp.followups||0;
+  document.getElementById('eow-rp-inactive').textContent = rp.inactiveAgents||0;
+
+  // Workflow display — Top 100 cleanup stages (fix: use actual saved fields)
+  const stages = [
+    {label:'1 · New Top 100', val:w.newTop100||0},
+    {label:'2 · Data Needed', val:w.dataNeeded||0},
+    {label:'3 · Outreach Sent', val:w.outreachSent||0},
+    {label:'4 · Data Updated', val:w.dataUpdated||0},
+    {label:'5 · Retention Ready', val:w.retentionReady||0}
+  ];
+  const pipelineStages = [
+    {label:'VIP Outreach', val:w.vipOutreach||0},
+    {label:'Inactive Follow-up', val:w.inactiveFollowup||0},
+    {label:'New Agents', val:w.newAgents||0}
+  ];
+  const tot = stages.reduce((s,i)=>s+i.val,0);
+  const pipeTot = pipelineStages.reduce((s,i)=>s+i.val,0);
+  document.getElementById('workflow-display').innerHTML =
+    `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94a3b8;margin-bottom:10px">Top 100 Data Cleanup</div>` +
+    stages.map(s => {
+      const pct = tot>0?Math.round((s.val/tot)*100):0;
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
+          <span style="color:#475569">${s.label}</span><span style="font-weight:600">${s.val}</span>
+        </div>
+        <div class="progress-bar" style="height:6px"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('') +
+    `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94a3b8;margin:16px 0 10px">Pipeline Activity</div>` +
+    pipelineStages.map(s => {
+      const pct = pipeTot>0?Math.round((s.val/pipeTot)*100):0;
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
+          <span style="color:#475569">${s.label}</span><span style="font-weight:600">${s.val}</span>
+        </div>
+        <div class="progress-bar" style="height:6px"><div class="progress-fill success" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+
+  // Attention
+  const alerts = [];
+  if (dpct < 50 && (d.leadsProcessed||0) > 0) alerts.push('⚠️ Daily lead goal behind schedule');
+  if ((d.oppsReviewed||0) < 5) alerts.push('⚠️ Pipeline reviews may need attention');
+  if ((rp.contactsUpdated||0) < 5) alerts.push('⚠️ RP CRM updates below pace');
+  if ((rp.postcards||0) === 0) alerts.push('⚠️ No postcards logged this session');
+  const al = document.getElementById('attention-list');
+  al.innerHTML = alerts.length
+    ? alerts.map(a=>`<div style="padding:11px;background:#fef3c7;border-left:4px solid #f59e0b;margin-bottom:8px;border-radius:4px;font-size:13px">${a}</div>`).join('')
+    : '<div style="color:#10b981;text-align:center;padding:30px;font-weight:500">✓ All metrics on track!</div>';
+
+  // Goals
+  updateGoalItem('goal-daily-leads', d.leadsProcessed||0, 100, 'goal-daily-leads-bar');
+  updateGoalItem('goal-daily-crm', d.contactsUpdated||0, 20, 'goal-daily-crm-bar');
+  updateGoalItem('goal-daily-cleanups', rp.cleanups||0, 3, 'goal-daily-cleanups-bar');
+  updateGoalItem('goal-weekly-rp', rp.contactsUpdated||0, 25, 'goal-weekly-rp-bar');
+  updateGoalItem('goal-weekly-missing', rp.missingData||0, 10, 'goal-weekly-missing-bar');
+  updateGoalItem('goal-weekly-postcards', rp.postcards||0, 7, 'goal-weekly-postcards-bar');
+  updateGoalItem('goal-weekly-followups', rp.followups||0, 5, 'goal-weekly-followups-bar');
+  updateGoalItem('goal-monthly-leads', d.leadsProcessed||0, 2200, 'goal-monthly-leads-bar');
+  updateGoalItem('goal-monthly-inactive', rp.inactiveAgents||0, 10, 'goal-monthly-inactive-bar');
+  updateGoalItem('goal-monthly-bday', rp.birthdayCards||0, 5, 'goal-monthly-bday-bar');
+  document.getElementById('goal-monthly-accuracy').textContent = '—';
+}
+
+function updateKPI(elId, val, target, barId) {
+  document.getElementById(elId).textContent = val||0;
+  const pct = Math.round(((val||0)/target)*100);
+  const bar = document.getElementById(barId);
+  bar.style.width = Math.min(pct,100)+'%';
+  bar.classList.remove('success','warning');
+  if(pct>=80) bar.classList.add('success');
+  else if(pct<50) bar.classList.add('warning');
+  const txt = document.getElementById(barId+'-text');
+  if(txt) txt.textContent = pct+'%';
+}
+
+function setBar(id, pct) {
+  const el = document.getElementById(id);
+  el.style.width = Math.min(pct,100)+'%';
+  el.classList.remove('success','warning');
+  if(pct>=80) el.classList.add('success');
+  else if(pct<50) el.classList.add('warning');
+}
+
+function updateGoalItem(labelId, actual, target, barId) {
+  document.getElementById(labelId).textContent = actual.toLocaleString();
+  setBar(barId, Math.round((actual/target)*100));
+}
+
+function copyEODSummary() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const m = raw ? JSON.parse(raw) : {};
+  const d = m.daily||{}, w = m.workflow||{}, rp = m.rp||{};
+  const dpct = Math.min(Math.round(((d.leadsProcessed||0)/100)*100),100);
+  const txt = `📊 EOD REPORT — ${new Date().toLocaleDateString('en-US')}
+Golden Bear Home Inspections | Ops: Duff Rose Trono
+
+GENERAL OPS:
+• Leads Processed: ${d.leadsProcessed||0}/100 (${dpct}%)
+• Contacts Updated: ${d.contactsUpdated||0}
+• Opportunities Reviewed: ${d.oppsReviewed||0}
+• Calls Handled: ${d.callsHandled||0}
+• Inspections Scheduled: ${w.scheduled||0}
+
+RP MANAGEMENT:
+• RP Contacts Updated: ${rp.contactsUpdated||0}
+• Missing Data Resolved: ${rp.missingData||0}
+• Duplicates Removed: ${rp.duplicatesRemoved||0}
+• Inactive Agents Contacted: ${rp.inactiveAgents||0}
+• Postcards Sent: ${rp.postcards||0}
+
+STATUS: ${dpct>=80?'✅ On Track':dpct>=50?'⚠️ Needs Attention':'❌ Behind Schedule'}`;
+  navigator.clipboard.writeText(txt).then(()=>showNotification('📋 EOD Summary copied!'));
+}
+
+function copyEOWSummary() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const m = raw ? JSON.parse(raw) : {};
+  const d = m.daily||{}, w = m.workflow||{}, rp = m.rp||{};
+  const txt = `📊 END OF WEEK REPORT — Week of ${new Date().toLocaleDateString('en-US')}
+Golden Bear Home Inspections | Ops: Duff Rose Trono
+
+── GENERAL OPERATIONS ──
+• Leads Processed: ${d.leadsProcessed||0} (target: 500/wk)
+• Contacts Updated: ${d.contactsUpdated||0}
+• Calls Handled: ${d.callsHandled||0}
+• Inspections Scheduled: ${w.scheduled||0}
+• Follow-ups Sent: ${d.followupsSent||0}
+
+── RP MANAGEMENT ──
+• RP Contacts Updated: ${rp.contactsUpdated||0} (target: 25+)
+• Duplicate Records Removed: ${rp.duplicatesRemoved||0}
+• Missing Data Resolved: ${rp.missingData||0} (target: 10+)
+• Postcards Sent: ${rp.postcards||0} (target: 5–10)
+• Realtor Follow-ups: ${rp.followups||0}
+• Inactive Agents Contacted: ${rp.inactiveAgents||0}
+• Birthday Cards Sent: ${rp.birthdayCards||0}
+• Agent Data Cleanups: ${rp.cleanups||0}
+
+── TOP 100 CLEANUP SNAPSHOT ──
+• New Top 100: ${w.newTop100||0}
+• Data Needed: ${w.dataNeeded||0}
+• Outreach Sent: ${w.outreachSent||0}
+• Data Updated: ${w.dataUpdated||0}
+• Retention Ready: ${w.retentionReady||0}
+
+Notes / Blockers:
+[Add here]`;
+  navigator.clipboard.writeText(txt).then(()=>showNotification('📋 EOW Report copied!'));
+}
+
+function showNotification(msg) {
+  const n = document.createElement('div');
+  n.style.cssText='position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:14px 22px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,.2);z-index:9999;font-size:14px;font-weight:500;animation:slideIn .3s ease';
+  n.textContent=msg;
+  document.body.appendChild(n);
+  setTimeout(()=>{n.style.animation='slideOut .3s ease';setTimeout(()=>n.remove(),300)},3000);
+}
+
+const style=document.createElement('style');
+style.textContent='@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(400px);opacity:0}}';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
